@@ -1,0 +1,32 @@
+{
+  "name": "onvardgmbh/calendar-helper",
+  "description": "Calendar helper functions",
+  "license": "MIT",
+  "homepage": "https://github.com/onvardgmbh/calendar-helper",
+  "keywords": [
+    "onvard",
+    "helper",
+    "ical"
+  ],
+  "type": "library",
+  "authors": [
+    {
+      "name": "Christian Cavasin",
+      "email": "cavasin@onvard.de"
+    }
+  ],
+  "require": {
+    "eluceo/ical": "^0.15.0",
+    "nesbot/carbon": "^2.11",
+    "ext-dom": "*",
+    "ext-libxml": "*",
+    "ext-iconv": "*"
+  },
+  "require-dev": {
+  },
+  "autoload": {
+    "psr-4": {
+      "Onvardgmbh\\CalendarHelper\\": "src/"
+    }
+  }
+}
