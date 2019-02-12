@@ -1,119 +1,102 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Onvardgmbh\CalendarHelper;
 
 use Carbon\Carbon;
-use DOMDocument;
+use Carbon\CarbonInterface;
 use Eluceo\iCal\Component;
 use Eluceo\iCal\Component\Calendar;
 use Eluceo\iCal\Component\Event;
 use Eluceo\iCal\Property\Event\Organizer;
+use DOMDocument;
 use LogicException;
 use UnexpectedValueException;
+use InvalidArgumentException;
 
 /**
- * CalendarHelper class
+ * CalendarHelper class.
  */
 class CalendarHelper
 {
     /**
-     * createCalendar
+     * Wrapper around the Eluceo Calendar constructor
      *
-     * @param  string $productId
-     * @param  array $components
+     * @param string $productId
+     * @param array  $components
      *
      * @return Calendar
      */
     public static function createCalendar(string $productId, array $components): Calendar
     {
         if (empty($productId)) {
-            throw new UnexpectedValueException("\033[1;31m\$productId cannot be empty!\033[0m");
+            throw new UnexpectedValueException('$productId cannot be empty!');
         }
 
         if (empty($components)) {
-            throw new UnexpectedValueException("\033[1;31m\$components cannot be empty!\033[0m");
+            throw new UnexpectedValueException('$components cannot be empty!');
         }
 
         $calendar = new Calendar($productId);
-        $uniqueIdentifiers = [];
+        $uniqueIds = [];
         foreach ($components as $key => $component) {
             if (!($component instanceof Component)) {
                 $key = var_export($key, true);
-                throw new UnexpectedValueException("\033[1;31m\$components[$key] must from type Component!\033[0m");
+                throw new UnexpectedValueException("\$components[$key] must be an instance of Component!");
             }
 
             if (method_exists($component, 'getUniqueId')) {
-                $uniqueIdentifier = $component->getUniqueId();
-                if (in_array($uniqueIdentifier, $uniqueIdentifiers)) {
-                    error_log((string)new LogicException("\033[1;33mUnique identifier is not unique!\033[0m"));
+                $uniqueId = $component->getUniqueId();
+                if (in_array($uniqueId, $uniqueIds)) {
+                    throw new LogicException('Id is not unique!');
                 }
-                $uniqueIdentifiers[] = $uniqueIdentifier;
+                $uniqueIds[] = $uniqueId;
             }
 
             $calendar->addComponent($component);
         }
+
         return $calendar;
     }
 
     /**
-     * createEventComponent
+     * Wrapper around the Eluceo Event component
+     * If necessary, HTML is converted to a plaintext without loss of anchor or image tags
      *
-     * (If necessary, HTML is converted to a plaintext without loss of anchor or image tags)
-     *
-     * @param  array $params
-     *  $params = [
-     *      'identifier'    => (string) This property defines the persistent, globally unique identifier for the calendar component.    (optional)
-     *      'start'         => [    (array) This property specifies when the calendar component begins.
-     *          'dateTime'  =>      (Everything that Carbon can understand.)
-     *          'timeZone'  =>      (string) e.g. 'Europe/Berlin'
-     *      ]
-     *      'end'           => [    (array) This property specifies the date and time that a calendar component ends.       (optional)
-     *          'dateTime'  =>      (Everything that Carbon can understand.)
-     *          'timeZone'  =>      (string) e.g. 'Europe/Berlin'
-     *      ]
-     *      'summary'       => (string) This property defines a short summary or subject for the calendar component. (html2text)        (optional)
-     *      'location'      => (string|array) The property defines the intended venue for the activity defined by a calendar component. (optional)
-     *      'description'   => (string) This property provides a more complete description of the calendar component,
-     *                                  than that provided by the "SUMMARY" property. (html2text)                                       (optional)
-     *      'organizer'     => (string|array) The property defines the organizer for a calendar component.                              (optional)
-     *                                        ↪︎ ['name' => 'Max Mustermann', 'email' => 'mustermann@mustermail.de']
-     *                                        ↪︎ 'Max Mustermann <mustermann@mustermail.de>'
-     *      'status'        => (string) This property defines the overall status or confirmation for the calendar component.            (optional)
-     *                                  allowed values: null, 'TENTATIVE', 'CONFIRMED', 'CANCELLED' (lowercase allowed)
-     *  ]
+     * @param array $params
      *
      * @return Event
      */
     public static function createEventComponent(array $params): Event
     {
-        $identifier = $params['identifier'] ?? null;
-        $identifier = empty($identifier) ? null : "$identifier";
-
-        $event = new Event($identifier);
+        $event = new Event(
+            !empty($params['id'])
+                ? (string) $params['id']
+                : null
+        );
         $event->setUseTimezone(true);
 
-        $startTime = Self::dateTimeWithTimeZone($params['start'] ?? null);
-        if (!empty($startTime)) {
-            $event->setDtStart($startTime);
+        if (!empty($params['start'])) {
+            $event->setDtStart(self::dateTimeWithTimeZone($params['start']));
         } else {
-            throw new UnexpectedValueException("\033[1;31m\$params['start'] cannot be empty!\033[0m");
+            throw new UnexpectedValueException("\$params['start'] cannot be empty!");
         }
 
-        $endTime = Self::dateTimeWithTimeZone($params['end'] ?? null);
-        if (!empty($endTime)) {
-            $event->setDtEnd($endTime);
+        if (!empty($params['end'])) {
+            $event->setDtEnd(self::dateTimeWithTimeZone($params['end']));
         }
 
         $event->setNoTime(isset($params['time']) ? !$params['time'] : false);
 
         $summary = $params['summary'] ?? null;
         if (!empty($summary)) {
-            $event->setSummary(Self::html2text($summary));
+            $event->setSummary(self::html2text($summary));
         }
 
         $description = $params['description'] ?? null;
         if (!empty($description)) {
-            $event->setDescription(Self::html2text($description));
+            $event->setDescription(self::html2text($description));
             $event->setDescriptionHTML($description);
         }
 
@@ -143,15 +126,15 @@ class CalendarHelper
             }
 
             if (empty($organizer['mail'])) {
-                throw new UnexpectedValueException("\033[1;31m\$params['organizer']['mail'] cannot be empty!\033[0m");
+                throw new UnexpectedValueException("\$params['organizer']['mail'] cannot be empty!");
             }
 
             if (empty($organizer['name'])) {
-                throw new UnexpectedValueException("\033[1;31m\$params['organizer']['name'] cannot be empty!\033[0m");
+                throw new UnexpectedValueException("\$params['organizer']['name'] cannot be empty!");
             }
 
             $event->setOrganizer(new Organizer(
-                'MAILTO:' . trim($organizer['mail']),
+                'MAILTO:'.trim($organizer['mail']),
                 ['CN' => trim($organizer['name'])]
             ));
         }
@@ -160,7 +143,7 @@ class CalendarHelper
             try {
                 $event->setStatus($status);
             } catch (InvalidArgumentException $exception) {
-                throw new UnexpectedValueException("\033[1;31m\$params['status'] Can only have one of the following values: 'TENTATIVE', 'CONFIRMED', 'CANCELLED'!\033[0m");
+                throw new UnexpectedValueException("\$params['status'] Can only have one of the following values: 'TENTATIVE', 'CONFIRMED', 'CANCELLED'!");
             }
         }
 
@@ -168,39 +151,35 @@ class CalendarHelper
     }
 
     /**
-     * dateTimeWithTimeZone
+     * dateTimeWithTimeZone.
      *
-     * @param  string|array $params
+     * @param string|array|CarbonInterface $params
      *
-     * @return Carbon|null
+     * @return CarbonInterface
      */
     private static function dateTimeWithTimeZone($params)
     {
-        if (!empty($params)) {
-            if (is_array($params)) {
-                if (empty($params['dateTime'])) {
-                    throw new UnexpectedValueException("\033[1;31m\$params['dateTime'] cannot be empty!\033[0m");
-                }
-                if (empty($params['timeZone'])) {
-                    throw new UnexpectedValueException("\033[1;31m\$params['timeZone'] cannot be empty!\033[0m");
-                }
-                $carbon = Carbon::parse($params['dateTime'], $params['timeZone']);
-            } else {
-                throw new UnexpectedValueException("\033[1;31m\$params must be an array!\033[0m");
+        if (is_array($params)) {
+            if (empty($params['dateTime'])) {
+                throw new UnexpectedValueException("\$params['dateTime'] cannot be empty!");
             }
-
-            return $carbon->setTimezone('UTC');
+            if (empty($params['timeZone'])) {
+                throw new UnexpectedValueException("\$params['timeZone'] cannot be empty!");
+            }
+            $carbon = Carbon::parse($params['dateTime'], $params['timeZone']);
+        } elseif ($params instanceof Carbon) {
+            $carbon = $params;
         } else {
-            return null;
+            throw new UnexpectedValueException('$params must be an array or instance of Carbon !');
         }
+
+        return $carbon->setTimezone('UTC');
     }
 
     /**
-     * html2text
-     *
      * Converts HTML to a plaintext without loss of anchor or image tags
      *
-     * @param  string $html
+     * @param string $html
      *
      * @return string
      */
@@ -213,34 +192,33 @@ class CalendarHelper
         libxml_use_internal_errors(false);
 
         // Replace image tags with a text like "$alt"
-        $links = $dom->getElementsByTagName('img');
-        for ($i = $links->length - 1; $i >= 0; $i--) {
-            $node = $links->item($i);
-            $alt = $node->getAttribute('alt');
+        $images = iterator_to_array($dom->getElementsByTagName('img'));
+        foreach ($images as $image) {
+            $alt = $image->getAttribute('alt');
             if (!empty(trim($alt))) {
-                $newTextNode = $dom->createTextNode("$alt");
-                $node->parentNode->replaceChild($newTextNode, $node);
+                $text = $dom->createTextNode($alt);
+                $image->parentNode->replaceChild($text, $image);
             }
         }
 
         // Replace anchor tags with a text like "$text ($href)"
-        $links = $dom->getElementsByTagName('a');
-        for ($i = $links->length - 1; $i >= 0; $i--) {
-            $node = $links->item($i);
-            $text = $node->textContent;
-            $href = $node->getAttribute('href');
+        $links = iterator_to_array($dom->getElementsByTagName('a'));
+        foreach ($links as $link) {
+            $text = $link->textContent;
+            $href = $link->getAttribute('href');
             if (!empty(trim($href))) {
                 if (empty(trim($text))) {
-                    $node->parentNode->removeChild($node);
+                    $link->parentNode->removeChild($link);
                 } else {
-                    $newTextNode = $dom->createTextNode("$text ($href)");
-                    $node->parentNode->replaceChild($newTextNode, $node);
+                    $text = $dom->createTextNode("$text ($href)");
+                    $link->parentNode->replaceChild($text, $link);
                 }
             }
         }
 
         // Convert charset to "ISO-8859-1" (because of problems with apple calendar)
         $textContentCharset = mb_detect_encoding($dom->textContent, mb_detect_order(), true);
-        return iconv($textContentCharset, "ISO-8859-1//TRANSLIT", $dom->textContent);
+
+        return iconv($textContentCharset, 'ISO-8859-1//TRANSLIT', $dom->textContent);
     }
 }

@@ -7,14 +7,12 @@ Calendar Helper is a php library for dealing with ical's.
 Use composer to install the Calendar Helper.
 
 ```bash
-composer install onvardgmbh/calendar
+composer install onvardgmbh/calendar-helper
 ```
 
 ## Usage
 
 ```php
-<?php
-
 use Onvardgmbh\CalendarHelper\CalendarHelper;
 
 $calendar = CalendarHelper::createCalendar('Example', [
@@ -34,12 +32,11 @@ echo $calendar->render();
 ```
 
 ```php
-<?php
 use Onvardgmbh\CalendarHelper\CalendarHelper;
 
 CalendarHelper::createEventComponent([
     // (string) This property defines the persistent, globally unique identifier for the calendar component.    (optional)
-    'identifier'    => '..',
+    'id'    => '..',
     
     // (array) This property specifies when the calendar component begins.
     'start'         => [
